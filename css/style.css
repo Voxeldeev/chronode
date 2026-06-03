@@ -1,0 +1,252 @@
+/* --- MODERN WEB APP CSS --- */
+:root {
+    --bg-color: #050505;
+    --glass-bg: rgba(20, 20, 20, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --accent: #ffffff;
+    --text-main: #eaeaea;
+    --text-muted: #888;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: monospace;
+}
+
+button, input {
+    font-family: inherit;
+}
+
+canvas {
+    display: block;
+    background-color: var(--bg-color);
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+
+/* UI OVERLAY SHELL */
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+}
+
+/* TOP BAR */
+#top-bar {
+    pointer-events: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 25px;
+    background: transparent;
+    border-bottom: none;
+}
+
+/* TRANSPORT CONTROLS */
+#transport {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-grow: 1;
+}
+
+#drop-zone {
+    border: 1.5px dashed var(--text-muted);
+    border-radius: 8px;
+    padding: 10px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    min-width: 150px;
+    text-align: center;
+}
+
+#drop-zone.hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+#play-pause {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease;
+}
+
+#play-pause:active { transform: scale(0.95); }
+#play-pause:disabled { background: #555; cursor: not-allowed; }
+
+/* --- CUSTOM GEOMETRIC TIMEBAR --- */
+#scrubber-container {
+    position: relative;
+    flex-grow: 1;
+    max-width: 250px;
+    display: flex;
+    align-items: center;
+    height: 24px; 
+}
+
+#scrubber-container::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 4px;
+    height: 16px;
+    background: var(--accent);
+    z-index: 1;
+}
+
+#scrubber-container::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    width: 4px;
+    height: 16px;
+    background: var(--accent);
+    z-index: 1;
+}
+
+#scrubber {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    cursor: pointer;
+    margin: 0;
+    z-index: 2; 
+}
+
+#scrubber:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+#scrubber::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 2px;
+    background: var(--accent);
+}
+
+#scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 12px;
+    width: 12px;
+    background: var(--accent);
+    margin-top: -5px; 
+    border-radius: 0; 
+}
+
+#scrubber::-moz-range-track {
+    width: 100%;
+    height: 2px;
+    background: var(--accent);
+}
+
+#scrubber::-moz-range-thumb {
+    height: 12px;
+    width: 12px;
+    background: var(--accent);
+    border: none;
+    border-radius: 0; 
+}
+
+/* SIDEBAR TOGGLE */
+#menu-toggle {
+    background: transparent;
+    color: var(--text-main);
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.2s ease;
+}
+#menu-toggle:hover { color: var(--text-muted); }
+
+/* SETTINGS SIDEBAR */
+#sidebar {
+    pointer-events: auto;
+    position: absolute;
+    top: 71px;
+    right: -320px;
+    width: 280px;
+    height: calc(100vh - 71px);
+    background: #000000;
+    border-left: 1px solid var(--glass-border);
+    padding: 25px;
+    box-sizing: border-box;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+#sidebar.open { right: 0; }
+
+.setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.setting-group label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+}
+
+.setting-group input[type="range"] { accent-color: var(--accent); }
+.setting-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.checkbox-group label { text-transform: none; font-size: 14px; color: var(--text-main); }
+
+#btn-reset {
+    margin-top: 10px;
+    padding: 12px;
+    background: #333;
+    color: var(--text-main);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: bold;
+}
+#btn-reset:hover {
+    background: var(--text-main);
+    color: #000;
+}
+
+#audio { display: none; }
