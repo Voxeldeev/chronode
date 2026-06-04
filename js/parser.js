@@ -276,8 +276,8 @@ export function parseBeepboxData(json) {
                 let duration = endTime - startTime;
 
                 if (isPerc) {
-                    endTime = absoluteBarStartTime + currentMeasureDuration;
                     duration = currentMeasureDuration;
+                    endTime = startTime + duration;
                 }
 
                 const tickProgress = barLengths[barIndex] > 0 ? (note.points[0].tick / barLengths[barIndex]) : 0;
