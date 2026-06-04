@@ -3,7 +3,7 @@ import { timeToTick } from './parser.js';
 export default class Visualizer {
     constructor(canvas) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d', { alpha: false }); // Optimization: Disables alpha channel on root canvas
+        this.ctx = canvas.getContext('2d', { alpha: false });
         this.textCache = {};
         
         this.resize();
@@ -26,14 +26,21 @@ export default class Visualizer {
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
         
-        offscreenCanvas.width = size * 2.5; 
-        offscreenCanvas.height = size * 2.5;
+        const scale = window.devicePixelRatio || 2; 
+        const logicalSize = size * 2.5;
+
+        offscreenCanvas.width = logicalSize * scale;
+        offscreenCanvas.height = logicalSize * scale;
+
+        offscreenCtx.scale(scale, scale);
 
         offscreenCtx.fillStyle = color;
         offscreenCtx.font = `${size}px monospace`;
         offscreenCtx.textAlign = 'center';
         offscreenCtx.textBaseline = 'middle';
-        offscreenCtx.fillText(text, offscreenCanvas.width / 2, offscreenCanvas.height / 2);
+        offscreenCtx.fillText(text, logicalSize / 2, logicalSize / 2);
+
+        offscreenCanvas.logicalSize = logicalSize;
 
         this.textCache[key] = offscreenCanvas;
         return offscreenCanvas;
@@ -165,6 +172,8 @@ export default class Visualizer {
                 if (currentTime < event.startTime || currentTime > event.endTime) return; 
 
                 const percColor = event.color || 'white';
+                
+                const fadeProgress = (currentTime - event.startTime) / event.duration;
                 const angle = (event.tickProgress * Math.PI * 2) - (Math.PI / 2);
                 const radius = orbitRadius + percRadii[event.tag];
                 
@@ -174,6 +183,7 @@ export default class Visualizer {
                 this.ctx.save();
                 this.ctx.translate(x, y);
                 this.ctx.rotate(angle);
+                this.ctx.globalAlpha = Math.max(0, 1 - fadeProgress);
 
                 this.ctx.lineWidth = 1.5;
                 this.ctx.strokeStyle = percColor;
@@ -293,8 +303,10 @@ export default class Visualizer {
                         
                         this.ctx.drawImage(
                             textImg, 
-                            x - (textImg.width / 2), 
-                            (y + 1) - (textImg.height / 2)
+                            x - (textImg.logicalSize / 2), 
+                            (y + 1) - (textImg.logicalSize / 2),
+                            textImg.logicalSize,
+                            textImg.logicalSize
                         );
                     }
                 });

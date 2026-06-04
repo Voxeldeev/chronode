@@ -155,7 +155,14 @@ class ChronodeApp {
     }
 
     _onAudioEnded() {
-        this.ui.playPauseBtn.textContent = '▶';
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        
+        if (playIcon && pauseIcon) {
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+        }
+        
         this.ui.playPauseBtn.setAttribute('aria-label', 'Play');
         this.ui.scrubber.value = 0;
     }
