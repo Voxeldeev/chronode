@@ -1,4 +1,36 @@
-// --- HELPER: KEYFRAME TIMELINE MATH ---
+/**
+ * @typedef {Object} SongSegment
+ * @property {number} startTick
+ * @property {number} endTick
+ * @property {number} startTimeSeconds
+ * @property {number} durationSeconds
+ * @property {number} startBpm
+ * @property {number} endBpm
+ * @property {number} slope
+ */
+
+/**
+ * @typedef {Object} NoteEvent
+ * @property {number} channel
+ * @property {string} tag
+ * @property {string|null} color
+ * @property {number[]} pitches
+ * @property {Object[]} points
+ * @property {number} startTime
+ * @property {number} endTime
+ * @property {number} duration
+ * @property {number} tickProgress
+ * @property {boolean} isPerc
+ * @property {number} layerIndex
+ */
+
+/**
+ * Converts a specific tick to an absolute time in seconds based on dynamic tempo segments.
+ * * @param {number} tick - The target tick.
+ * @param {SongSegment[]} segments - The parsed tempo segments.
+ * @param {number} tpb - Ticks per beat.
+ * @returns {number} Absolute time in seconds.
+ */
 export function tickToTime(tick, segments, tpb) {
     if (tick <= 0) return 0;
     const lastSeg = segments[segments.length - 1];
@@ -22,6 +54,13 @@ export function tickToTime(tick, segments, tpb) {
     return 0;
 }
 
+/**
+ * Converts an absolute time in seconds back to a specific tick.
+ * * @param {number} time - Absolute time in seconds.
+ * @param {SongSegment[]} segments - The parsed tempo segments.
+ * @param {number} tpb - Ticks per beat.
+ * @returns {number} The corresponding tick.
+ */
 export function timeToTick(time, segments, tpb) {
     if (time <= 0) return 0;
     const lastSeg = segments[segments.length - 1];
@@ -45,12 +84,15 @@ export function timeToTick(time, segments, tpb) {
     return 0;
 }
 
-// --- 1. THE PARSER ---
+/**
+ * Parses raw BeepBox JSON into optimized, linear event arrays suitable for rendering.
+ * * @param {Object} json - The raw BeepBox project JSON.
+ * @returns {Object} A structured object containing the tonic, timing info, and linear events.
+ */
 export function parseBeepboxData(json) {
     const defaultBpm = json.beatsPerMinute;
     const tpb = json.ticksPerBeat;
     const bpb = json.beatsPerBar;
-    
     const standardTicksPerBar = tpb * bpb;
 
     const keyString = json.key || "C";
@@ -58,7 +100,6 @@ export function parseBeepboxData(json) {
     const tonicPitch = keyMap[keyString] !== undefined ? keyMap[keyString] : 0;
 
     const percTags = ['kick', 'snare', 'chh', 'ohh', 'othp'];
-    
     const maxBars = json.channels[0].sequence.length; 
     const totalTicks = maxBars * standardTicksPerBar;
     
@@ -66,11 +107,10 @@ export function parseBeepboxData(json) {
     let barLengths = new Array(maxBars).fill(standardTicksPerBar);
     let bpmAtTick = new Array(totalTicks).fill(-1); 
     
-    let keyframes = new Set();
-    keyframes.add(0);
-    keyframes.add(totalTicks);
+    let keyframes = new Set([0, totalTicks]);
     for (let b = 0; b <= maxBars; b++) keyframes.add(b * standardTicksPerBar);
 
+    // Parse Mod Channels for Tempo Changes and Bar Cuts
     json.channels.forEach(channel => {
         if (channel.type === "mod") {
             channel.sequence.forEach((patternIndex, barIndex) => {
@@ -182,6 +222,7 @@ export function parseBeepboxData(json) {
     }
 
     let eventList = [];
+    let channelMetadata = [];
     let renderedChannelCount = 0;
 
     json.channels.forEach((channel, channelIndex) => {
@@ -199,7 +240,20 @@ export function parseBeepboxData(json) {
         }
 
         if (tag === 'omit') return;
-        if (!percTags.includes(tag)) renderedChannelCount++;
+        
+        const isPerc = percTags.includes(tag);
+        
+        if (!isPerc) {
+            renderedChannelCount++;
+            channelMetadata.push({
+                id: renderedChannelCount,
+                tag: tag,
+                color: customColor || 'white'
+            });
+        }
+        
+        // Calculate the physical ring layer upfront to avoid doing it per-frame during render
+        const layerIndex = renderedChannelCount; 
 
         channel.sequence.forEach((patternIndex, barIndex) => {
             if (patternIndex === 0) return; 
@@ -221,7 +275,7 @@ export function parseBeepboxData(json) {
                 let endTime = tickToTime(globalEndTick, segments, tpb);
                 let duration = endTime - startTime;
 
-                if (percTags.includes(tag)) {
+                if (isPerc) {
                     endTime = absoluteBarStartTime + currentMeasureDuration;
                     duration = currentMeasureDuration;
                 }
@@ -245,21 +299,22 @@ export function parseBeepboxData(json) {
                     startTime: startTime,      
                     endTime: endTime,          
                     duration: duration,
-                    tickProgress: tickProgress 
+                    tickProgress: tickProgress,
+                    isPerc: isPerc,
+                    layerIndex: layerIndex
                 });
             });
         });
     });
 
-    renderedChannelCount = Math.max(1, renderedChannelCount); 
-
     return {
         tonic: tonicPitch,
         tpb: tpb,
         bpb: bpb,
-        renderedChannelCount: renderedChannelCount,
+        renderedChannelCount: Math.max(1, renderedChannelCount),
         events: eventList.sort((a, b) => a.startTime - b.startTime),
         segments: segments,
-        barLengths: barLengths
+        barLengths: barLengths,
+        channelMetadata: channelMetadata
     };
 }

@@ -3,7 +3,9 @@ import { timeToTick } from './parser.js';
 export default class Visualizer {
     constructor(canvas) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        this.ctx = canvas.getContext('2d', { alpha: false }); // Optimization: Disables alpha channel on root canvas
+        this.textCache = {};
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -13,16 +15,67 @@ export default class Visualizer {
         this.canvas.height = window.innerHeight; 
     }
 
+    /**
+     * Retrieves or generates a cached canvas containing the drawn text.
+     * Prevents expensive font rendering in the main animation loop.
+     */
+    _getNoteImage(text, color, size) {
+        const key = `${text}_${color}_${size}`;
+        if (this.textCache[key]) return this.textCache[key];
+
+        const offscreenCanvas = document.createElement('canvas');
+        const offscreenCtx = offscreenCanvas.getContext('2d');
+        
+        offscreenCanvas.width = size * 2.5; 
+        offscreenCanvas.height = size * 2.5;
+
+        offscreenCtx.fillStyle = color;
+        offscreenCtx.font = `${size}px monospace`;
+        offscreenCtx.textAlign = 'center';
+        offscreenCtx.textBaseline = 'middle';
+        offscreenCtx.fillText(text, offscreenCanvas.width / 2, offscreenCanvas.height / 2);
+
+        this.textCache[key] = offscreenCanvas;
+        return offscreenCanvas;
+    }
+
+    /**
+     * Calculates pitch bend interpolation based on current timeline offset.
+     */
+    _getPitchBend(event, currentOffset) {
+        for (let i = 0; i < event.points.length - 1; i++) {
+            const p1 = event.points[i];
+            const p2 = event.points[i+1];
+            if (currentOffset >= p1.timeOffset && currentOffset <= p2.timeOffset) {
+                const t = (currentOffset - p1.timeOffset) / (p2.timeOffset - p1.timeOffset);
+                return p1.pitchBend + (p2.pitchBend - p1.pitchBend) * t;
+            }
+        }
+        return event.points[event.points.length - 1].pitchBend || 0;
+    }
+
+    /**
+     * Master render loop entry point.
+     */
     draw(activeEvents, currentTime, songData, VISUAL_SETTINGS) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear frame with background color
+        this.ctx.fillStyle = '#050505';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
         const maxRadius = Math.min(centerX, centerY) * 0.85; 
+        const orbitRadius = maxRadius + 40; 
 
+        this._drawOrbitalTrail(currentTime, songData, centerX, centerY, orbitRadius);
+        this._drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius);
+        this._drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius);
+    }
+
+    _drawOrbitalTrail(currentTime, songData, centerX, centerY, orbitRadius) {
         const currentGlobalTick = timeToTick(currentTime, songData.segments, songData.tpb);
-        
         const standardTicksPerBar = songData.tpb * songData.bpb;
+        
         let currentBarIndex = Math.floor(currentGlobalTick / standardTicksPerBar);
         if (currentBarIndex >= songData.barLengths.length) currentBarIndex = songData.barLengths.length - 1;
         
@@ -31,7 +84,6 @@ export default class Visualizer {
 
         const measureProgress = ticksInBar > 0 ? (currentGlobalTick - currentBarStartTick) / ticksInBar : 0;
         const orbitRotation = (measureProgress * Math.PI * 2) - (Math.PI / 2);
-        const orbitRadius = maxRadius + 40; 
 
         const tailAngle = orbitRotation - (Math.PI / 4);
         const headAngle = orbitRotation;
@@ -51,45 +103,16 @@ export default class Visualizer {
         this.ctx.beginPath();
         this.ctx.arc(centerX, centerY, orbitRadius, tailAngle, headAngle);
         this.ctx.stroke();
+    }
 
-        const percTags = ['kick', 'snare', 'chh', 'ohh', 'othp'];
-        const percRadii = { 'kick': -16, 'snare': -8, 'othp': 0, 'chh': 8, 'ohh': 16 };
-        const noteNames = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+    _drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius) {
+        activeEvents.forEach(event => {
+            if (event.isPerc || currentTime > event.endTime) return; 
 
-        const getPitchBend = (event, currentOffset) => {
-            for (let i = 0; i < event.points.length - 1; i++) {
-                const p1 = event.points[i];
-                const p2 = event.points[i+1];
-                if (currentOffset >= p1.timeOffset && currentOffset <= p2.timeOffset) {
-                    const t = (currentOffset - p1.timeOffset) / (p2.timeOffset - p1.timeOffset);
-                    return p1.pitchBend + (p2.pitchBend - p1.pitchBend) * t;
-                }
-            }
-            return event.points[event.points.length - 1].pitchBend || 0;
-        };
-
-        const sortedActiveEvents = [...activeEvents].sort((a, b) => {
-            const isPercA = percTags.includes(a.tag);
-            const isPercB = percTags.includes(b.tag);
-            
-            if (isPercA && !isPercB) return -1;
-            if (!isPercA && isPercB) return 1;
-            
-            const layerA = songData.renderedChannelCount - (a.channel % songData.renderedChannelCount);
-            const layerB = songData.renderedChannelCount - (b.channel % songData.renderedChannelCount);
-            
-            return layerB - layerA; 
-        });
-
-        sortedActiveEvents.forEach(event => {
-            if (percTags.includes(event.tag)) return; 
-            if (currentTime > event.endTime) return; 
-
-            let lineColor = event.color || 'white';
-            
+            const lineColor = event.color || 'white';
             const boundedTime = Math.max(event.startTime, Math.min(currentTime, event.endTime));
             const currentOffset = boundedTime - event.startTime;
-            const currentBend = getPitchBend(event, currentOffset);
+            const currentBend = this._getPitchBend(event, currentOffset); 
 
             let lineStartRatio = 0;
             let lineEndRatio = 1;
@@ -104,10 +127,11 @@ export default class Visualizer {
 
             if (lineEndRatio <= lineStartRatio) return;
 
-            const layerIndex = songData.renderedChannelCount - (event.channel % songData.renderedChannelCount);
+            const reversedLayerIndex = (songData.renderedChannelCount - event.layerIndex) + 1;
+
             const ringRadius = VISUAL_SETTINGS.useFixedOrbitalSpacing 
-                ? layerIndex * VISUAL_SETTINGS.fixedOrbitalSpacing 
-                : (maxRadius / songData.renderedChannelCount) * layerIndex;
+                ? reversedLayerIndex * VISUAL_SETTINGS.fixedOrbitalSpacing 
+                : (maxRadius / songData.renderedChannelCount) * reversedLayerIndex;
 
             event.pitches.forEach(pitch => {
                 const c_rpc = pitch + currentBend; 
@@ -126,17 +150,21 @@ export default class Visualizer {
                 this.ctx.stroke();
             });
         });
+    }
 
-        sortedActiveEvents.forEach(event => {
+    _drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius) {
+        const percRadii = { 'kick': -16, 'snare': -8, 'othp': 0, 'chh': 8, 'ohh': 16 };
+        const noteNames = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+
+        activeEvents.forEach(event => {
             const boundedTime = Math.max(event.startTime, Math.min(currentTime, event.endTime));
             const currentOffset = boundedTime - event.startTime;
-            const currentBend = getPitchBend(event, currentOffset);
+            const currentBend = this._getPitchBend(event, currentOffset);
 
-            if (percTags.includes(event.tag)) {
+            if (event.isPerc) {
                 if (currentTime < event.startTime || currentTime > event.endTime) return; 
 
-                let percColor = event.color || 'white';
-
+                const percColor = event.color || 'white';
                 const angle = (event.tickProgress * Math.PI * 2) - (Math.PI / 2);
                 const radius = orbitRadius + percRadii[event.tag];
                 
@@ -176,8 +204,7 @@ export default class Visualizer {
             } else {
                 if (currentTime < event.startTime) return; 
 
-                let noteColor = event.color || 'white';
-                
+                const noteColor = event.color || 'white';
                 let baseNoteRadius = 16;
                 if (event.tag === 'sml') baseNoteRadius = 8;
                 else if (event.tag === 'lrg') baseNoteRadius = 24;
@@ -186,8 +213,8 @@ export default class Visualizer {
                 baseNoteRadius *= VISUAL_SETTINGS.dotRadiusScale;
 
                 const isPoly = ['tri', 'sqr', 'pnt', 'hex'].includes(event.tag);
-
                 const isGhost = currentTime > event.endTime;
+                
                 let ghostProgress = 0;
                 if (isGhost && VISUAL_SETTINGS.decayTime > 0) {
                     ghostProgress = Math.min(1, (currentTime - event.endTime) / VISUAL_SETTINGS.decayTime); 
@@ -199,10 +226,11 @@ export default class Visualizer {
                 const currentLineWidth = isGhost ? 2 * (1 - ghostProgress) : 2;
                 const currentRadius = isGhost ? baseNoteRadius + (ghostProgress * 8) : baseNoteRadius;
 
-                const layerIndex = songData.renderedChannelCount - (event.channel % songData.renderedChannelCount);
+                const reversedLayerIndex = (songData.renderedChannelCount - event.layerIndex) + 1;
+
                 const ringRadius = VISUAL_SETTINGS.useFixedOrbitalSpacing 
-                    ? layerIndex * VISUAL_SETTINGS.fixedOrbitalSpacing 
-                    : (maxRadius / songData.renderedChannelCount) * layerIndex;
+                    ? reversedLayerIndex * VISUAL_SETTINGS.fixedOrbitalSpacing 
+                    : (maxRadius / songData.renderedChannelCount) * reversedLayerIndex;
 
                 event.pitches.forEach(pitch => {
                     const c_rpc = pitch + currentBend; 
@@ -210,9 +238,6 @@ export default class Visualizer {
                     
                     const x = centerX + Math.cos(angle) * ringRadius;
                     const y = centerY + Math.sin(angle) * ringRadius;
-
-                    let textX = x;
-                    let textY = y + 1; 
 
                     this.ctx.save();
                     this.ctx.globalAlpha = currentAlpha;
@@ -264,12 +289,13 @@ export default class Visualizer {
                         const soundingPitch = pitch + currentBend + songData.tonic;
                         const rawPitchClass = Math.round(soundingPitch); 
                         const wrappedPitchClass = ((rawPitchClass % 12) + 12) % 12;
+                        const textImg = this._getNoteImage(noteNames[wrappedPitchClass], noteColor, VISUAL_SETTINGS.textSize);
                         
-                        this.ctx.fillStyle = noteColor;
-                        this.ctx.font = `${VISUAL_SETTINGS.textSize}px monospace`;
-                        this.ctx.textAlign = 'center';
-                        this.ctx.textBaseline = 'middle';
-                        this.ctx.fillText(noteNames[wrappedPitchClass], textX, textY); 
+                        this.ctx.drawImage(
+                            textImg, 
+                            x - (textImg.width / 2), 
+                            (y + 1) - (textImg.height / 2)
+                        );
                     }
                 });
             }

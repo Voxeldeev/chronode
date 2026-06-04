@@ -1,196 +1,320 @@
 import { parseBeepboxData } from './parser.js';
 import Visualizer from './visualizer.js';
 
-// --- VISUAL SETTINGS (State) ---
-const DEFAULT_SETTINGS = {
-    textSize: 12,                  
-    dotRadiusScale: 1.0,           
-    useFixedOrbitalSpacing: false, 
-    fixedOrbitalSpacing: 40,       
-    decayTime: 0.20,               
-    lineShotTime: 0.05             
-};
+class ChronodeApp {
+    constructor() {
+        // --- VISUAL SETTINGS (State) ---
+        this.DEFAULT_SETTINGS = {
+            textSize: 12,                  
+            dotRadiusScale: 1.0,           
+            useFixedOrbitalSpacing: false, 
+            fixedOrbitalSpacing: 40,       
+            decayTime: 0.20,               
+            lineShotTime: 0.05             
+        };
+        this.settings = { ...this.DEFAULT_SETTINGS };
 
-const VISUAL_SETTINGS = { ...DEFAULT_SETTINGS };
+        // --- APPLICATION STATE ---
+        this.allEvents = [];
+        this.songData = {}; 
+        this.isJsonLoaded = false;
+        this.isAudioLoaded = false;
+        this.uploadedJsonRaw = null;
+        this.loadedJsonName = "None";
+        this.loadedWavName = "None";
 
-let allEvents = [];
-let songData = {}; 
+        // --- DEPENDENCIES ---
+        this.audioEl = document.getElementById('audio');
+        this.visualizer = new Visualizer(document.getElementById('visualizer'));
 
-const audioEl = document.getElementById('audio');
-const visualizer = new Visualizer(document.getElementById('visualizer'));
+        // --- DOM ELEMENTS ---
+        this.ui = {
+            playPauseBtn: document.getElementById('play-pause'),
+            scrubber: document.getElementById('scrubber'),
+            dropZone: document.getElementById('drop-zone'),
+            menuToggle: document.getElementById('menu-toggle'),
+            sidebar: document.getElementById('sidebar'),
+            resetBtn: document.getElementById('btn-reset'),
+            atlasContainer: document.getElementById('channel-atlas')
+        };
 
-// UI Elements
-const uiPlayPauseBtn = document.getElementById('play-pause');
-const uiScrubber = document.getElementById('scrubber');
-const uiDropZone = document.getElementById('drop-zone');
-const uiMenuToggle = document.getElementById('menu-toggle');
-const uiSidebar = document.getElementById('sidebar');
+        this.ui.playPauseBtn.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <path d="M8 5v14l11-7z" id="play-icon" />
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" id="pause-icon" style="display:none" />
+            </svg>`;
 
-// State
-let isJsonLoaded = false;
-let isAudioLoaded = false;
-let uploadedJsonRaw = null;
-
-// Track filenames for display
-let loadedJsonName = "None";
-let loadedWavName = "None";
-
-function renderLoop() {
-    requestAnimationFrame(renderLoop);
-    
-    if (!audioEl.paused && audioEl.duration) {
-        uiScrubber.value = (audioEl.currentTime / audioEl.duration) * 100;
+        this._bindEvents();
+        this._startRenderLoop();
     }
 
-    const currentTime = audioEl.currentTime;
-    
-    const activeEvents = allEvents.filter(e => 
-        currentTime >= e.startTime - VISUAL_SETTINGS.lineShotTime && 
-        currentTime <= e.endTime + VISUAL_SETTINGS.decayTime
-    );
-
-    if (songData.segments) {
-        // We pass VISUAL_SETTINGS into the draw method explicitly now
-        visualizer.draw(activeEvents, currentTime, songData, VISUAL_SETTINGS); 
-    }
-}
-// Start idle render loop to draw background immediately
-requestAnimationFrame(renderLoop);
-
-// --- APP CONTROLS & EVENTS ---
-
-uiPlayPauseBtn.addEventListener('click', () => {
-    if (audioEl.paused) {
-        audioEl.play();
-        uiPlayPauseBtn.textContent = '⏸';
-    } else {
-        audioEl.pause();
-        uiPlayPauseBtn.textContent = '▶';
-    }
-});
-
-audioEl.addEventListener('ended', () => {
-    uiPlayPauseBtn.textContent = '▶';
-    uiScrubber.value = 0;
-});
-
-uiScrubber.addEventListener('input', (e) => {
-    if (audioEl.duration) {
-        audioEl.currentTime = (e.target.value / 100) * audioEl.duration;
-    }
-});
-
-uiMenuToggle.addEventListener('click', () => {
-    uiSidebar.classList.toggle('open');
-});
-
-// Settings Data Binding
-const bindSetting = (inputId, displayId, settingKey, isFloat = false) => {
-    document.getElementById(inputId).addEventListener('input', (e) => {
-        const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
-        VISUAL_SETTINGS[settingKey] = val;
+    _bindEvents() {
+        // Transport Controls
+        this.ui.playPauseBtn.addEventListener('click', () => this._togglePlayPause());
+        this.audioEl.addEventListener('ended', () => this._onAudioEnded());
+        this.ui.scrubber.addEventListener('input', (e) => this._onScrubberInput(e));
         
-        let displayStr = val.toString();
-        if (settingKey === 'textSize' || settingKey === 'fixedOrbitalSpacing') displayStr += 'px';
-        else if (settingKey === 'dotRadiusScale') displayStr += 'x';
-        else if (settingKey === 'decayTime' || settingKey === 'lineShotTime') displayStr += 's';
-        
-        document.getElementById(displayId).textContent = displayStr;
-    });
-};
+        // Menu
+        this.ui.menuToggle.addEventListener('click', () => this.ui.sidebar.classList.toggle('open'));
+        this.ui.resetBtn.addEventListener('click', () => this._resetSettings());
 
-bindSetting('set-textSize', 'val-textSize', 'textSize');
-bindSetting('set-dotScale', 'val-dotScale', 'dotRadiusScale', true);
-bindSetting('set-fixedSpace', 'val-fixedSpace', 'fixedOrbitalSpacing');
-bindSetting('set-decay', 'val-decay', 'decayTime', true);
-bindSetting('set-shot', 'val-shot', 'lineShotTime', true);
+        // File Dropping
+        this.ui.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.ui.dropZone.classList.add('hover');
+        });
+        this.ui.dropZone.addEventListener('dragleave', () => this.ui.dropZone.classList.remove('hover'));
+        this.ui.dropZone.addEventListener('drop', (e) => this._handleFileDrop(e));
 
-document.getElementById('set-useFixed').addEventListener('change', (e) => {
-    VISUAL_SETTINGS.useFixedOrbitalSpacing = e.target.checked;
-});
+        // Settings Data Binding
+        this._bindSetting('set-textSize', 'val-textSize', 'textSize');
+        this._bindSetting('set-dotScale', 'val-dotScale', 'dotRadiusScale', true);
+        this._bindSetting('set-fixedSpace', 'val-fixedSpace', 'fixedOrbitalSpacing');
+        this._bindSetting('set-decay', 'val-decay', 'decayTime', true);
+        this._bindSetting('set-shot', 'val-shot', 'lineShotTime', true);
 
-// Reset Settings Button
-document.getElementById('btn-reset').addEventListener('click', () => {
-    Object.assign(VISUAL_SETTINGS, DEFAULT_SETTINGS);
+        document.getElementById('set-useFixed').addEventListener('change', (e) => {
+            this.settings.useFixedOrbitalSpacing = e.target.checked;
+        });
 
-    document.getElementById('set-textSize').value = VISUAL_SETTINGS.textSize;
-    document.getElementById('val-textSize').textContent = VISUAL_SETTINGS.textSize + 'px';
+        // Global Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => this._handleKeyboardShortcuts(e));
+    }
 
-    document.getElementById('set-dotScale').value = VISUAL_SETTINGS.dotRadiusScale;
-    document.getElementById('val-dotScale').textContent = VISUAL_SETTINGS.dotRadiusScale.toFixed(1) + 'x';
+    // Keyboard Transport Logic ---
+    _handleKeyboardShortcuts(e) {
+        if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(document.activeElement.tagName)) return;
 
-    document.getElementById('set-useFixed').checked = VISUAL_SETTINGS.useFixedOrbitalSpacing;
+        // Do nothing if audio hasn't been loaded yet
+        if (!this.isAudioLoaded || !this.audioEl.duration) return;
 
-    document.getElementById('set-fixedSpace').value = VISUAL_SETTINGS.fixedOrbitalSpacing;
-    document.getElementById('val-fixedSpace').textContent = VISUAL_SETTINGS.fixedOrbitalSpacing + 'px';
+        switch (e.code) {
+            case 'Space':
+                e.preventDefault();
+                this._togglePlayPause();
+                break;
+                
+            case 'ArrowRight':
+                e.preventDefault();
+                this.audioEl.currentTime = Math.min(this.audioEl.currentTime + 5, this.audioEl.duration);
+                break;
 
-    document.getElementById('set-decay').value = VISUAL_SETTINGS.decayTime;
-    document.getElementById('val-decay').textContent = VISUAL_SETTINGS.decayTime + 's';
-
-    document.getElementById('set-shot').value = VISUAL_SETTINGS.lineShotTime;
-    document.getElementById('val-shot').textContent = VISUAL_SETTINGS.lineShotTime + 's';
-});
-
-// Drag & Drop Upload with Dynamic Text
-uiDropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uiDropZone.classList.add('hover');
-});
-
-uiDropZone.addEventListener('dragleave', () => {
-    uiDropZone.classList.remove('hover');
-});
-
-uiDropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uiDropZone.classList.remove('hover');
-    
-    let loadedCount = 0;
-
-    for (let file of e.dataTransfer.files) {
-        if (file.name.endsWith('.json')) {
-            loadedJsonName = file.name;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                uploadedJsonRaw = JSON.parse(e.target.result);
-                isJsonLoaded = true;
-                checkReadyState();
-            };
-            reader.readAsText(file);
-            loadedCount++;
-        } 
-        else if (file.name.endsWith('.wav') || file.name.endsWith('.mp3')) {
-            loadedWavName = file.name;
-            const audioUrl = URL.createObjectURL(file);
-            audioEl.src = audioUrl;
-            isAudioLoaded = true;
-            checkReadyState();
-            loadedCount++;
+            case 'ArrowLeft':
+                e.preventDefault();
+                this.audioEl.currentTime = Math.max(this.audioEl.currentTime - 5, 0);
+                break;
         }
     }
-    
-    if (loadedCount > 0) uiDropZone.textContent = "Processing...";
-});
 
-function checkReadyState() {
-    if (isJsonLoaded && isAudioLoaded) {
-        uiDropZone.textContent = `[${loadedJsonName}] & [${loadedWavName}]`;
-        uiDropZone.style.borderColor = "#4caf50";
-        uiDropZone.style.color = "#4caf50";
+    _bindSetting(inputId, displayId, settingKey, isFloat = false) {
+        document.getElementById(inputId).addEventListener('input', (e) => {
+            const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
+            this.settings[settingKey] = val;
+            
+            let displayStr = val.toString();
+            if (settingKey === 'textSize' || settingKey === 'fixedOrbitalSpacing') displayStr += 'px';
+            else if (settingKey === 'dotRadiusScale') displayStr += 'x';
+            else if (settingKey === 'decayTime' || settingKey === 'lineShotTime') displayStr += 's';
+            
+            document.getElementById(displayId).textContent = displayStr;
+        });
+    }
+
+    _resetSettings() {
+        Object.assign(this.settings, this.DEFAULT_SETTINGS);
+
+        const updates = [
+            { id: 'set-textSize', valId: 'val-textSize', val: this.settings.textSize, suffix: 'px' },
+            { id: 'set-dotScale', valId: 'val-dotScale', val: this.settings.dotRadiusScale.toFixed(1), suffix: 'x' },
+            { id: 'set-fixedSpace', valId: 'val-fixedSpace', val: this.settings.fixedOrbitalSpacing, suffix: 'px' },
+            { id: 'set-decay', valId: 'val-decay', val: this.settings.decayTime, suffix: 's' },
+            { id: 'set-shot', valId: 'val-shot', val: this.settings.lineShotTime, suffix: 's' }
+        ];
+
+        updates.forEach(({ id, valId, val, suffix }) => {
+            document.getElementById(id).value = typeof this.DEFAULT_SETTINGS[id.split('-')[1]] === 'number' ? this.DEFAULT_SETTINGS[id.split('-')[1]] : val;
+            document.getElementById(valId).textContent = val + suffix;
+        });
+
+        document.getElementById('set-useFixed').checked = this.settings.useFixedOrbitalSpacing;
+    }
+
+    _togglePlayPause() {
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+
+        if (this.audioEl.paused) {
+            this.audioEl.play();
+            playIcon.style.display = 'none';
+            pauseIcon.style.display = 'block';
+        } else {
+            this.audioEl.pause();
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+        }
+    }
+
+    _onAudioEnded() {
+        this.ui.playPauseBtn.textContent = '▶';
+        this.ui.playPauseBtn.setAttribute('aria-label', 'Play');
+        this.ui.scrubber.value = 0;
+    }
+
+    _onScrubberInput(e) {
+        if (this.audioEl.duration) {
+            this.audioEl.currentTime = (e.target.value / 100) * this.audioEl.duration;
+        }
+    }
+
+    _handleFileDrop(e) {
+        e.preventDefault();
+        this.ui.dropZone.classList.remove('hover');
         
-        const parsedData = parseBeepboxData(uploadedJsonRaw);
-        allEvents = parsedData.events;
+        let loadedCount = 0;
+
+        for (let file of e.dataTransfer.files) {
+            if (file.name.endsWith('.json')) {
+                this.loadedJsonName = file.name;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    this.uploadedJsonRaw = JSON.parse(event.target.result);
+                    this.isJsonLoaded = true;
+                    this._checkReadyState();
+                };
+                reader.readAsText(file);
+                loadedCount++;
+            } 
+            else if (file.name.endsWith('.wav') || file.name.endsWith('.mp3')) {
+                this.loadedWavName = file.name;
+                this.audioEl.src = URL.createObjectURL(file);
+                this.isAudioLoaded = true;
+                this._checkReadyState();
+                loadedCount++;
+            }
+        }
         
-        songData.tonic = parsedData.tonic;
-        songData.tpb = parsedData.tpb;
-        songData.bpb = parsedData.bpb;
-        songData.renderedChannelCount = parsedData.renderedChannelCount;
-        songData.segments = parsedData.segments;
-        songData.barLengths = parsedData.barLengths;
-        
-        console.log(`Parsed ${allEvents.length} events. Map segments: ${songData.segments.length}`);
-        
-        uiPlayPauseBtn.disabled = false;
-        uiScrubber.disabled = false;
+        if (loadedCount > 0) this.ui.dropZone.textContent = "Processing...";
+    }
+
+    _checkReadyState() {
+        if (this.isJsonLoaded && this.isAudioLoaded) {
+            const nameJson = this.loadedJsonName.split('.').slice(0, -1).join('.');
+            const nameWav = this.loadedWavName.split('.').slice(0, -1).join('.');
+
+            if (nameJson === nameWav) {
+                this.ui.dropZone.textContent = nameJson;
+            } else {
+                this.ui.dropZone.textContent = `[${this.loadedJsonName}] & [${this.loadedWavName}]`;
+            }
+            
+            this.ui.dropZone.style.borderColor = "#4caf50";
+            this.ui.dropZone.style.color = "#4caf50";
+            
+            const parsedData = parseBeepboxData(this.uploadedJsonRaw);
+            this.allEvents = parsedData.events;
+            
+            this.songData = {
+                tonic: parsedData.tonic,
+                tpb: parsedData.tpb,
+                bpb: parsedData.bpb,
+                renderedChannelCount: parsedData.renderedChannelCount,
+                segments: parsedData.segments,
+                barLengths: parsedData.barLengths,
+                channelMetadata: parsedData.channelMetadata
+            };
+            
+            console.log(`Parsed ${this.allEvents.length} events. Map segments: ${this.songData.segments.length}`);
+            
+            this._buildChannelAtlas();
+
+            this.ui.playPauseBtn.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M8 5v14l11-7z" id="play-icon" />
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" id="pause-icon" style="display:none" />
+                </svg>`;
+
+            this.ui.playPauseBtn.disabled = false;
+            this.ui.scrubber.disabled = false;
+        }
+    }
+
+    // --- Channel Atlas UI ---
+    _buildChannelAtlas() {
+        if (!this.ui.atlasContainer) return;
+        this.ui.atlasContainer.innerHTML = ''; 
+
+        if (!this.songData.channelMetadata || this.songData.channelMetadata.length === 0) return;
+
+        this.songData.channelMetadata.forEach(meta => {
+            const item = document.createElement('div');
+            item.className = 'atlas-item';
+            
+            let svgShape = `<circle cx="16" cy="16" r="13" />`;
+            let textY = 17;
+
+            if (meta.tag === 'sqr') {
+                svgShape = `<rect x="3" y="3" width="26" height="26" />`;
+            } else if (meta.tag === 'tri') {
+                svgShape = `<polygon points="16,2 31,28 1,28" />`;
+                textY = 20;
+            } else if (meta.tag === 'pnt') {
+                svgShape = `<polygon points="16,2 30,12 25,28 7,28 2,12" />`;
+            } else if (meta.tag === 'hex') {
+                svgShape = `<polygon points="8,2 24,2 31,16 24,30 8,30 1,16" />`;
+            }
+
+            item.innerHTML = `
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <g stroke="${meta.color}" stroke-width="2" fill="#000000">
+                        ${svgShape}
+                    </g>
+                    <text x="16" y="${textY}" 
+                          fill="${meta.color}" 
+                          font-family="monospace" 
+                          font-size="12px" 
+                          font-weight="bold" 
+                          text-anchor="middle" 
+                          dominant-baseline="middle">
+                        ${meta.id}
+                    </text>
+                </svg>
+            `;
+            
+            this.ui.atlasContainer.appendChild(item);
+        });
+    }
+
+    _startRenderLoop() {
+        const loop = () => {
+            requestAnimationFrame(loop);
+            
+            if (!this.audioEl.paused && this.audioEl.duration) {
+                this.ui.scrubber.value = (this.audioEl.currentTime / this.audioEl.duration) * 100;
+            }
+
+            const currentTime = this.audioEl.currentTime;
+            
+            const activeEvents = this.allEvents.filter(e => 
+                currentTime >= e.startTime - this.settings.lineShotTime && 
+                currentTime <= e.endTime + this.settings.decayTime
+            );
+
+            // Sort in-place to avoid GC allocation
+            activeEvents.sort((a, b) => {
+                if (a.isPerc && !b.isPerc) return -1;
+                if (!a.isPerc && b.isPerc) return 1;
+                return a.layerIndex - b.layerIndex;
+            });
+
+            if (this.songData.segments) {
+                this.visualizer.draw(activeEvents, currentTime, this.songData, this.settings); 
+            }
+        };
+
+        requestAnimationFrame(loop);
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new ChronodeApp();
+});

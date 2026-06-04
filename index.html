@@ -3,57 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nodal Visualizer</title>
+    <meta name="description" content="Chronode: Beepbox JSON Visualizer.">
+    <title>Chronode by Voxel</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <canvas id="visualizer"></canvas>
-    <audio id="audio"></audio>
+    <canvas id="visualizer" aria-hidden="true"></canvas>
+    <audio id="audio" hidden></audio>
 
-    <div id="ui-layer">
+    <main id="ui-layer">
         
-        <div id="top-bar">
+        <header id="top-bar">
             <div id="transport">
-                <div id="drop-zone">Drop .json & .wav here</div>
-                <button id="play-pause" disabled>▶</button>
+                <div id="drop-zone" role="button" tabindex="0" aria-label="Drop JSON and WAV files here">Drop .json & .wav here</div>
+                <button id="play-pause" aria-label="Play or Pause" disabled>▶</button>
                 <div id="scrubber-container">
-                    <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1" disabled>
+                    <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1" aria-label="Audio scrubber" disabled>
                 </div>
             </div>
-            <button id="menu-toggle">☰</button>
-        </div>
+            <button id="menu-toggle" aria-label="Toggle Settings Menu">☰</button>
+        </header>
 
-        <div id="sidebar">
+        <aside id="sidebar" aria-hidden="true">
+            <div id="sidebar-title">Chronode by Voxel</div>
             <div class="setting-group">
-                <label>Text Size <span id="val-textSize">12px</span></label>
+                <label for="set-textSize">Text Size <span id="val-textSize">12px</span></label>
                 <input type="range" id="set-textSize" min="0" max="36" value="12">
             </div>
             <div class="setting-group">
-                <label>Dot Scale <span id="val-dotScale">1.0x</span></label>
+                <label for="set-dotScale">Dot Scale <span id="val-dotScale">1.0x</span></label>
                 <input type="range" id="set-dotScale" min="0.1" max="3" step="0.1" value="1.0">
             </div>
             <div class="setting-group checkbox-group">
                 <input type="checkbox" id="set-useFixed">
-                <label>Use Fixed Orbital Spacing</label>
+                <label for="set-useFixed">Use Fixed Orbital Spacing</label>
             </div>
             <div class="setting-group">
-                <label>Fixed Spacing <span id="val-fixedSpace">40px</span></label>
+                <label for="set-fixedSpace">Fixed Spacing <span id="val-fixedSpace">40px</span></label>
                 <input type="range" id="set-fixedSpace" min="10" max="100" value="40">
             </div>
             <div class="setting-group">
-                <label>Decay Time <span id="val-decay">0.2s</span></label>
+                <label for="set-decay">Decay Time <span id="val-decay">0.2s</span></label>
                 <input type="range" id="set-decay" min="0" max="2" step="0.05" value="0.2">
             </div>
             <div class="setting-group">
-                <label>Line Shot Time <span id="val-shot">0.05s</span></label>
+                <label for="set-shot">Line Shot Time <span id="val-shot">0.05s</span></label>
                 <input type="range" id="set-shot" min="0" max="0.5" step="0.01" value="0.05">
             </div>
             
-            <button id="btn-reset">Reset to Defaults</button>
-        </div>
+            <div id="channel-atlas" aria-label="Channel Legend"></div>
 
-    </div>
+            <button id="btn-reset">Reset to Defaults</button>
+        </aside>
+
+    </main>
 
     <script type="module" src="js/app.js"></script>
 </body>
