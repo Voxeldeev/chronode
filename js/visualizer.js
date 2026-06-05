@@ -6,18 +6,30 @@ export default class Visualizer {
         this.ctx = canvas.getContext('2d', { alpha: false });
         this.textCache = {};
         this.scale = 1.0;
+        
+        this.logicalWidth = window.innerWidth;
+        this.logicalHeight = window.innerHeight;
+        
         this.resize();
     }
 
     resize(targetHeight = null) {
         if (targetHeight) {
+            const targetWidth = Math.round(targetHeight * (16 / 9));
+            
             this.scale = targetHeight / window.innerHeight;
-            this.canvas.width = Math.round(window.innerWidth * this.scale);
+            this.canvas.width = targetWidth;
             this.canvas.height = targetHeight;
+            
+            this.logicalWidth = targetWidth / this.scale;
+            this.logicalHeight = window.innerHeight; 
         } else {
             this.scale = 1.0;
             this.canvas.width = window.innerWidth;
             this.canvas.height = window.innerHeight;
+            
+            this.logicalWidth = window.innerWidth;
+            this.logicalHeight = window.innerHeight;
         }
     }
 
@@ -61,17 +73,14 @@ export default class Visualizer {
     }
 
     draw(activeEvents, currentTime, songData, VISUAL_SETTINGS) {
-        const logicalWidth = window.innerWidth;
-        const logicalHeight = window.innerHeight;
-
         this.ctx.save();
         this.ctx.scale(this.scale, this.scale);
 
         this.ctx.fillStyle = '#000000';
-        this.ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+        this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
 
-        const centerX = logicalWidth / 2;
-        const centerY = logicalHeight / 2;
+        const centerX = this.logicalWidth / 2;
+        const centerY = this.logicalHeight / 2;
         const maxRadius = Math.min(centerX, centerY) * 0.85; 
         const orbitRadius = maxRadius + 40; 
 
