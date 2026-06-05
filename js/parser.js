@@ -110,7 +110,6 @@ export function parseBeepboxData(json) {
     let keyframes = new Set([0, totalTicks]);
     for (let b = 0; b <= maxBars; b++) keyframes.add(b * standardTicksPerBar);
 
-    // Parse Mod Channels for Tempo Changes and Bar Cuts
     json.channels.forEach(channel => {
         if (channel.type === "mod") {
             channel.sequence.forEach((patternIndex, barIndex) => {
@@ -252,7 +251,6 @@ export function parseBeepboxData(json) {
             });
         }
         
-        // Calculate the physical ring layer upfront to avoid doing it per-frame during render
         const layerIndex = renderedChannelCount; 
 
         channel.sequence.forEach((patternIndex, barIndex) => {

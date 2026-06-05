@@ -26,8 +26,7 @@ button, input {
 }
 
 button:focus-visible, input:focus-visible, #drop-zone:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: none;
 }
 
 canvas {
@@ -52,6 +51,8 @@ canvas {
     z-index: 10;
     display: flex;
     flex-direction: column;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #top-bar {
@@ -257,9 +258,10 @@ canvas {
     justify-content: flex-end;
     gap: 10px;
 }
+
 .checkbox-group label { text-transform: none; font-size: 14px; color: var(--text-main); }
 
-#btn-reset {
+#btn-reset, #btn-demo {
     margin-top: 10px;
     padding: 12px;
     background: #333;
@@ -270,7 +272,7 @@ canvas {
     transition: all 0.2s ease;
     font-weight: bold;
 }
-#btn-reset:hover {
+#btn-reset:hover, #btn-demo:hover {
     background: var(--text-main);
     color: #000;
 }

@@ -17,6 +17,7 @@
         
         <header id="top-bar">
             <div id="transport">
+                <input type="file" id="file-picker" multiple accept=".json, .wav, .mp3" style="display: none;">
                 <div id="drop-zone" role="button" tabindex="0" aria-label="Drop JSON and WAV files here">Drop .json & .wav here</div>
                 <button id="play-pause" aria-label="Play or Pause" disabled>▶</button>
                 <div id="scrubber-container">
@@ -55,6 +56,7 @@
             
             <div id="channel-atlas" aria-label="Channel Legend"></div>
 
+            <button id="btn-demo">Load Demo Song</button>
             <button id="btn-reset">Reset to Defaults</button>
         </aside>
 

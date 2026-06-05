@@ -65,7 +65,6 @@ export default class Visualizer {
      * Master render loop entry point.
      */
     draw(activeEvents, currentTime, songData, VISUAL_SETTINGS) {
-        // Clear frame with background color
         this.ctx.fillStyle = '#00000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
