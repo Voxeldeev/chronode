@@ -5,34 +5,36 @@ export default class Visualizer {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false });
         this.textCache = {};
-        
+        this.scale = 1.0;
         this.resize();
-        window.addEventListener('resize', () => this.resize());
     }
 
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight; 
+    resize(targetHeight = null) {
+        if (targetHeight) {
+            this.scale = targetHeight / window.innerHeight;
+            this.canvas.width = Math.round(window.innerWidth * this.scale);
+            this.canvas.height = targetHeight;
+        } else {
+            this.scale = 1.0;
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        }
     }
 
-    /**
-     * Retrieves or generates a cached canvas containing the drawn text.
-     * Prevents expensive font rendering in the main animation loop.
-     */
     _getNoteImage(text, color, size) {
-        const key = `${text}_${color}_${size}`;
+        const key = `${text}_${color}_${size}_${this.scale}`;
         if (this.textCache[key]) return this.textCache[key];
 
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
         
-        const scale = window.devicePixelRatio || 2; 
+        const pixelRatio = (window.devicePixelRatio || 2) * this.scale; 
         const logicalSize = size * 2.5;
 
-        offscreenCanvas.width = logicalSize * scale;
-        offscreenCanvas.height = logicalSize * scale;
+        offscreenCanvas.width = logicalSize * pixelRatio;
+        offscreenCanvas.height = logicalSize * pixelRatio;
 
-        offscreenCtx.scale(scale, scale);
+        offscreenCtx.scale(pixelRatio, pixelRatio);
 
         offscreenCtx.fillStyle = color;
         offscreenCtx.font = `${size}px monospace`;
@@ -46,9 +48,6 @@ export default class Visualizer {
         return offscreenCanvas;
     }
 
-    /**
-     * Calculates pitch bend interpolation based on current timeline offset.
-     */
     _getPitchBend(event, currentOffset) {
         for (let i = 0; i < event.points.length - 1; i++) {
             const p1 = event.points[i];
@@ -61,21 +60,26 @@ export default class Visualizer {
         return event.points[event.points.length - 1].pitchBend || 0;
     }
 
-    /**
-     * Master render loop entry point.
-     */
     draw(activeEvents, currentTime, songData, VISUAL_SETTINGS) {
-        this.ctx.fillStyle = '#00000';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        const logicalWidth = window.innerWidth;
+        const logicalHeight = window.innerHeight;
 
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
+        this.ctx.save();
+        this.ctx.scale(this.scale, this.scale);
+
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+        const centerX = logicalWidth / 2;
+        const centerY = logicalHeight / 2;
         const maxRadius = Math.min(centerX, centerY) * 0.85; 
         const orbitRadius = maxRadius + 40; 
 
         this._drawOrbitalTrail(currentTime, songData, centerX, centerY, orbitRadius);
         this._drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius);
         this._drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius);
+        
+        this.ctx.restore();
     }
 
     _drawOrbitalTrail(currentTime, songData, centerX, centerY, orbitRadius) {

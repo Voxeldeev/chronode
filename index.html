@@ -18,7 +18,7 @@
         <header id="top-bar">
             <div id="transport">
                 <input type="file" id="file-picker" multiple accept=".json, .wav, .mp3" style="display: none;">
-                <div id="drop-zone" role="button" tabindex="0" aria-label="Drop JSON and WAV files here">Drop .json & .wav here</div>
+                <div id="drop-zone" role="button" tabindex="0" aria-label="Drop JSON and WAV files here">Drop .json & .wav or .mp3</div>
                 <button id="play-pause" aria-label="Play or Pause" disabled>▶</button>
                 <div id="scrubber-container">
                     <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1" aria-label="Audio scrubber" disabled>
@@ -52,6 +52,16 @@
             <div class="setting-group">
                 <label for="set-shot">Line Shot Time <span id="val-shot">0.05s</span></label>
                 <input type="range" id="set-shot" min="0" max="0.5" step="0.01" value="0.05">
+            </div>
+            <div class="setting-group">
+                <label for="set-exportRes">Export Resolution</label>
+                <select id="set-exportRes" style="background: transparent; color: var(--text-main); border: 1px solid var(--glass-border); border-radius: 4px; padding: 4px; font-family: monospace;">
+                    <option value="viewport">Viewport (Default)</option>
+                    <option value="720">720p HD</option>
+                    <option value="1080" selected>1080p FHD</option>
+                    <option value="1440">1440p QHD</option>
+                    <option value="2160">4K UHD</option>
+                </select>
             </div>
             
             <div id="channel-atlas" aria-label="Channel Legend"></div>

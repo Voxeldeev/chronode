@@ -6,6 +6,7 @@ import UIManager from './ui.js';
 class ChronodeApp {
     constructor() {
         this.DEFAULT_SETTINGS = {
+            exportRes: '1080',
             textSize: 12,                  
             dotRadiusScale: 1.0,           
             useFixedOrbitalSpacing: false, 
@@ -30,6 +31,12 @@ class ChronodeApp {
 
         this.audioEl = document.getElementById('audio');
         this.visualizer = new Visualizer(document.getElementById('visualizer'));
+
+        window.addEventListener('resize', () => {
+            if (!this.recorder.isRecording) {
+                this.visualizer.resize();
+            }
+        });
         
         this.recorder = new VideoRecorder(
             this.visualizer.canvas, 
@@ -83,10 +90,13 @@ class ChronodeApp {
         this.audioEl.addEventListener('ended', () => {
             if (this.recorder.isRecording) {
                 this.ui.setDropZoneStatus("Finalizing Video...", "default");
-                const paddingMs = (this.settings.decayTime * 1000) + 250; 
+                const paddingMs = (this.settings.decayTime * 1000) + 1000; 
                 
                 setTimeout(() => {
-                    if (this.recorder.isRecording) this.recorder.stop();
+                    if (this.recorder.isRecording) {
+                        this.recorder.stop();
+                        this.visualizer.resize();
+                    }
                     this.ui.resetTransportUI();
                 }, paddingMs);
             } else {
@@ -99,20 +109,27 @@ class ChronodeApp {
         if (this.isShiftDown && this.audioEl.paused && !this.recorder.isRecording) {
             this.audioEl.currentTime = 0;
             const cleanName = this.uploadState.jsonName.split('.').slice(0, -1).join('.');
+            
             this.ui.updateTransportIcon(true, this.isShiftDown, true);
             this.ui.setDropZoneStatus("Initializing Encoder...", "default");
+            
+            if (this.settings.exportRes !== 'viewport') {
+                this.visualizer.resize(parseInt(this.settings.exportRes));
+            }
+
             this.recorder.start(cleanName);
+
             setTimeout(() => {
                 if (this.recorder.isRecording) {
                     this.audioEl.play();
                     this.ui.setDropZoneStatus("Recording Video...", "ready");
                 }
-            }, 250);
+            }, 1000);
 
-        }
-        else {
+        } else {
             if (this.recorder.isRecording) {
                 this.recorder.stop();
+                this.visualizer.resize();
                 this.ui.setDropZoneStatus("Encoding Video...", "default");
             }
             
@@ -148,14 +165,16 @@ class ChronodeApp {
         } catch (error) {
             console.error("Demo load failed:", error);
             this.ui.setDropZoneStatus("Demo missing! Requires /demos folder.", "error");
-            setTimeout(() => this.ui.setDropZoneStatus("Drop .json & .wav here", "default"), 3000);
+            setTimeout(() => this.ui.setDropZoneStatus("Drop .json & .wav or .mp3", "default"), 3000);
         }
     }
 
     _processFiles(files) {
         if (this.uploadState.isJsonLoaded && this.uploadState.isAudioLoaded) {
-            if (this.recorder.isRecording) this.recorder.stop();
-            
+            if (this.recorder.isRecording) {
+                this.recorder.stop();
+                this.visualizer.resize();
+            }
             this.uploadState.isJsonLoaded = false;
             this.uploadState.isAudioLoaded = false;
             this.uploadState.jsonRaw = null;

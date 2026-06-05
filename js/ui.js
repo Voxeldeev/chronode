@@ -5,6 +5,7 @@ export default class UIManager {
         this.callbacks = callbacks;
 
         this.elements = {
+            exportRes: document.getElementById('set-exportRes'),
             playPauseBtn: document.getElementById('play-pause'),
             scrubber: document.getElementById('scrubber'),
             dropZone: document.getElementById('drop-zone'),
@@ -60,6 +61,10 @@ export default class UIManager {
 
         document.getElementById('set-useFixed').addEventListener('change', (e) => {
             this.settings.useFixedOrbitalSpacing = e.target.checked;
+        });
+
+        this.elements.exportRes.addEventListener('change', (e) => {
+            this.settings.exportRes = e.target.value;
         });
     }
 

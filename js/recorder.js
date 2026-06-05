@@ -8,6 +8,22 @@ export default class VideoRecorder {
         this.recordedChunks = [];
         this.isRecording = false;
         this.fileName = 'Export';
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.audioCtx = new AudioContext();
+        this.destNode = this.audioCtx.createMediaStreamDestination();
+
+        this.sourceNode = this.audioCtx.createMediaElementSource(this.audioEl);
+        this.sourceNode.connect(this.destNode);
+        this.sourceNode.connect(this.audioCtx.destination); 
+
+        this.silenceOsc = this.audioCtx.createOscillator();
+        this.silenceGain = this.audioCtx.createGain();
+        this.silenceGain.gain.value = 0; 
+        
+        this.silenceOsc.connect(this.silenceGain);
+        this.silenceGain.connect(this.destNode);
+        this.silenceOsc.start();
     }
 
     start(fileName) {
@@ -15,11 +31,12 @@ export default class VideoRecorder {
         this.recordedChunks = [];
         this.fileName = fileName || 'Export';
         
+        if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+
         const canvasStream = this.canvas.captureStream(60);
-        
-        const audioStream = this.audioEl.captureStream 
-            ? this.audioEl.captureStream() 
-            : this.audioEl.mozCaptureStream();
+        const audioStream = this.destNode.stream;
 
         const combinedStream = new MediaStream([
             ...canvasStream.getTracks(),
