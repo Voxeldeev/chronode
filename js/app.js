@@ -6,13 +6,13 @@ import UIManager from './ui.js';
 class ChronodeApp {
     constructor() {
         this.DEFAULT_SETTINGS = {
-            exportRes: '1080',
-            textSize: 12,                  
+            exportRes: '720',
+            textSize: 16,                  
             dotRadiusScale: 1.0,           
             useFixedOrbitalSpacing: false, 
-            fixedOrbitalSpacing: 40,       
-            decayTime: 0.20,               
-            lineShotTime: 0.05             
+            fixedOrbitalSpacing: 50,       
+            decayTime: 0.30,               
+            lineShotTime: 0.1             
         };
         
         this.settings = { ...this.DEFAULT_SETTINGS };

@@ -95,9 +95,26 @@ export function parseBeepboxData(json) {
     const bpb = json.beatsPerBar;
     const standardTicksPerBar = tpb * bpb;
 
-    const keyString = json.key || "C";
-    const keyMap = {"C":0, "C#":1, "Db":1, "D":2, "D#":3, "Eb":3, "E":4, "F":5, "F#":6, "Gb":6, "G":7, "G#":8, "Ab":8, "A":9, "A#":10, "Bb":10, "B":11};
-    const tonicPitch = keyMap[keyString] !== undefined ? keyMap[keyString] : 0;
+    let tonicPitch = 0;
+    if (typeof json.key === 'number') {
+        tonicPitch = json.key;
+    } else if (typeof json.key === 'string') {
+        const keyMap = {
+            "C":0, 
+            "C♯":1, "D♭":1,
+            "D":2, 
+            "D♯":3, "E♭":3,
+            "E":4, 
+            "F":5, 
+            "F♯":6, "G♭":6,
+            "G":7, 
+            "G♯":8, "A♭":8,
+            "A":9, 
+            "A♯":10, "B♭":10,
+            "B":11
+        };
+        tonicPitch = keyMap[json.key] !== undefined ? keyMap[json.key] : 0;
+    }
 
     const percTags = ['kick', 'snare', 'chh', 'ohh', 'othp'];
     const maxBars = json.channels[0].sequence.length; 

@@ -153,8 +153,7 @@ export default class Visualizer {
                 : (maxRadius / songData.renderedChannelCount) * reversedLayerIndex;
 
             event.pitches.forEach(pitch => {
-                const c_rpc = pitch + currentBend; 
-                const angle = (c_rpc * 7 * (Math.PI * 2) / 12) - (Math.PI / 2);
+                const angle = ((pitch + currentBend) * 7 * (Math.PI * 2) / 12) - (Math.PI / 2);
                 
                 const startX = centerX + Math.cos(angle) * ringRadius * lineStartRatio;
                 const startY = centerY + Math.sin(angle) * ringRadius * lineStartRatio;
@@ -173,7 +172,7 @@ export default class Visualizer {
 
     _drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius) {
         const percRadii = { 'kick': -16, 'snare': -8, 'othp': 0, 'chh': 8, 'ohh': 16 };
-        const noteNames = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+        const noteNames = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 
         activeEvents.forEach(event => {
             const boundedTime = Math.max(event.startTime, Math.min(currentTime, event.endTime));
@@ -255,8 +254,7 @@ export default class Visualizer {
                     : (maxRadius / songData.renderedChannelCount) * reversedLayerIndex;
 
                 event.pitches.forEach(pitch => {
-                    const c_rpc = pitch + currentBend; 
-                    const angle = (c_rpc * 7 * (Math.PI * 2) / 12) - (Math.PI / 2);
+                    const angle = ((pitch + currentBend) * 7 * (Math.PI * 2) / 12) - (Math.PI / 2);
                     
                     const x = centerX + Math.cos(angle) * ringRadius;
                     const y = centerY + Math.sin(angle) * ringRadius;
@@ -308,8 +306,7 @@ export default class Visualizer {
                     this.ctx.restore();
                     
                     if (!isGhost) {
-                        const soundingPitch = pitch + currentBend + songData.tonic;
-                        const rawPitchClass = Math.round(soundingPitch); 
+                        const rawPitchClass = Math.round(pitch + currentBend + songData.tonic); 
                         const wrappedPitchClass = ((rawPitchClass % 12) + 12) % 12;
                         const textImg = this._getNoteImage(noteNames[wrappedPitchClass], noteColor, VISUAL_SETTINGS.textSize);
                         
