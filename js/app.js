@@ -154,11 +154,11 @@ class ChronodeApp {
             this.uploadState.jsonName = "Voxel - Aether Repression.json";
             this.uploadState.isJsonLoaded = true;
 
-            const resAudio = await fetch('demos/Voxel - Aether Repression.wav');
-            if (!resAudio.ok) throw new Error("WAV not found");
+            const resAudio = await fetch('demos/Voxel - Aether Repression.mp3');
+            if (!resAudio.ok) throw new Error("MP3 not found");
             const audioBlob = await resAudio.blob();
             this.audioEl.src = URL.createObjectURL(audioBlob);
-            this.uploadState.wavName = "Voxel - Aether Repression.wav";
+            this.uploadState.wavName = "Voxel - Aether Repression.mp3";
             this.uploadState.isAudioLoaded = true;
 
             this._evaluateUploadState();
