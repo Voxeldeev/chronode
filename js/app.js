@@ -24,7 +24,7 @@ class ChronodeApp {
             isAudioLoaded: false,
             jsonRaw: null,
             jsonName: "None",
-            wavName: "None"
+            audioName: "None"
         };
 
         this.isShiftDown = false;
@@ -158,7 +158,7 @@ class ChronodeApp {
             if (!resAudio.ok) throw new Error("MP3 not found");
             const audioBlob = await resAudio.blob();
             this.audioEl.src = URL.createObjectURL(audioBlob);
-            this.uploadState.wavName = "Voxel - Aether Repression.mp3";
+            this.uploadState.audioName = "Voxel - Aether Repression.mp3";
             this.uploadState.isAudioLoaded = true;
 
             this._evaluateUploadState();
@@ -204,7 +204,7 @@ class ChronodeApp {
                 reader.readAsText(file);
             } 
             else if (file.name.endsWith('.wav') || file.name.endsWith('.mp3')) {
-                this.uploadState.wavName = file.name;
+                this.uploadState.audioName = file.name;
                 this.audioEl.src = URL.createObjectURL(file);
                 this.uploadState.isAudioLoaded = true;
                 this._evaluateUploadState();
@@ -219,10 +219,10 @@ class ChronodeApp {
 
         if (state.isJsonLoaded && state.isAudioLoaded) {
             const nameJson = state.jsonName.split('.').slice(0, -1).join('.');
-            const nameWav = state.wavName.split('.').slice(0, -1).join('.');
+            const nameWav = state.audioName.split('.').slice(0, -1).join('.');
             
             this.ui.setDropZoneStatus(
-                nameJson === nameWav ? nameJson : `[${state.jsonName}] & [${state.wavName}]`, 
+                nameJson === nameWav ? nameJson : `[${state.jsonName}] & [${state.audioName}]`, 
                 "ready"
             );
             
@@ -236,7 +236,8 @@ class ChronodeApp {
                 renderedChannelCount: parsedData.renderedChannelCount,
                 segments: parsedData.segments,
                 barLengths: parsedData.barLengths,
-                channelMetadata: parsedData.channelMetadata
+                channelMetadata: parsedData.channelMetadata,
+                volumeAtTick: parsedData.volumeAtTick
             };
             
             this.ui.buildChannelAtlas(this.songData.channelMetadata);

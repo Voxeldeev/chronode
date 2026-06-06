@@ -54,13 +54,6 @@ export function tickToTime(tick, segments, tpb) {
     return 0;
 }
 
-/**
- * Converts an absolute time in seconds back to a specific tick.
- * * @param {number} time - Absolute time in seconds.
- * @param {SongSegment[]} segments - The parsed tempo segments.
- * @param {number} tpb - Ticks per beat.
- * @returns {number} The corresponding tick.
- */
 export function timeToTick(time, segments, tpb) {
     if (time <= 0) return 0;
     const lastSeg = segments[segments.length - 1];
@@ -123,6 +116,7 @@ export function parseBeepboxData(json) {
     let isTickCut = new Array(totalTicks).fill(false);
     let barLengths = new Array(maxBars).fill(standardTicksPerBar);
     let bpmAtTick = new Array(totalTicks).fill(-1); 
+    let volumeAtTick = new Array(totalTicks).fill(-1); 
     
     let keyframes = new Set([0, totalTicks]);
     for (let b = 0; b <= maxBars; b++) keyframes.add(b * standardTicksPerBar);
@@ -141,11 +135,13 @@ export function parseBeepboxData(json) {
 
                 let nextBarPitch = -1;
                 let tempoPitch = -1;
+                let volumePitch = -1;
 
                 for (let x = 0; x < instrument.modChannels.length; x++) {
                     if (instrument.modChannels[x] === -1) { 
                         if (instrument.modSettings[x] === 4) nextBarPitch = instrument.modChannels.length - 1 - x;
                         if (instrument.modSettings[x] === 2) tempoPitch = instrument.modChannels.length - 1 - x;
+                        if (instrument.modSettings[x] === 1) volumePitch = instrument.modChannels.length - 1 - x;
                     }
                 }
 
@@ -184,15 +180,42 @@ export function parseBeepboxData(json) {
                             bpmAtTick[t] = lastPoint.volume + 1; 
                         }
                     }
+
+                    if (volumePitch !== -1 && note.pitches.includes(volumePitch)) {
+                        for (let i = 0; i < note.points.length - 1; i++) {
+                            const p1 = note.points[i];
+                            const p2 = note.points[i+1];
+                            const startGlobalTick = barStartTick + p1.tick;
+                            const endGlobalTick = barStartTick + p2.tick;
+                            
+                            for (let t = startGlobalTick; t < endGlobalTick; t++) {
+                                const progress = (t - startGlobalTick) / (endGlobalTick - startGlobalTick);
+                                volumeAtTick[t] = p1.volume + (p2.volume - p1.volume) * progress;
+                            }
+                        }
+                        
+                        const lastPoint = note.points[note.points.length - 1];
+                        const lastGlobalTick = barStartTick + lastPoint.tick;
+                        
+                        if (lastGlobalTick < totalTicks) volumeAtTick[lastGlobalTick] = lastPoint.volume;
+                        for (let t = lastGlobalTick; t < barStartTick + standardTicksPerBar; t++) {
+                            volumeAtTick[t] = lastPoint.volume; 
+                        }
+                    }
                 });
             });
         }
     });
 
     let currentTempo = defaultBpm;
+    let currentVol = 100;
+    
     for (let t = 0; t < totalTicks; t++) {
         if (bpmAtTick[t] !== -1) currentTempo = bpmAtTick[t];
         else bpmAtTick[t] = currentTempo;
+
+        if (volumeAtTick[t] !== -1) currentVol = volumeAtTick[t];
+        else volumeAtTick[t] = currentVol;
     }
 
     let criticalTicks = Array.from(keyframes).sort((a, b) => a - b);
@@ -330,6 +353,7 @@ export function parseBeepboxData(json) {
         events: eventList.sort((a, b) => a.startTime - b.startTime),
         segments: segments,
         barLengths: barLengths,
-        channelMetadata: channelMetadata
+        channelMetadata: channelMetadata,
+        volumeAtTick: volumeAtTick 
     };
 }

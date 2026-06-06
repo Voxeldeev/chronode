@@ -84,9 +84,17 @@ export default class Visualizer {
         const maxRadius = Math.min(centerX, centerY) * 0.85; 
         const orbitRadius = maxRadius + 40; 
 
+        const currentGlobalTick = timeToTick(currentTime, songData.segments, songData.tpb);
+        let globalAlphaMult = 1.0;
+        
+        if (songData.volumeAtTick && songData.volumeAtTick.length > 0) {
+            const tickIndex = Math.max(0, Math.min(songData.volumeAtTick.length - 1, Math.floor(currentGlobalTick)));
+            globalAlphaMult = songData.volumeAtTick[tickIndex] / 100;
+        }
+
         this._drawOrbitalTrail(currentTime, songData, centerX, centerY, orbitRadius);
-        this._drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius);
-        this._drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius);
+        this._drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, globalAlphaMult);
+        this._drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius, globalAlphaMult);
         
         this.ctx.restore();
     }
@@ -124,7 +132,7 @@ export default class Visualizer {
         this.ctx.stroke();
     }
 
-    _drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius) {
+    _drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, globalAlphaMult) {
         activeEvents.forEach(event => {
             if (event.isPerc || currentTime > event.endTime) return; 
 
@@ -165,12 +173,15 @@ export default class Visualizer {
                 this.ctx.lineTo(endX, endY);
                 this.ctx.strokeStyle = lineColor;
                 this.ctx.lineWidth = 2;
+                
+                this.ctx.globalAlpha = globalAlphaMult;
                 this.ctx.stroke();
+                this.ctx.globalAlpha = 1.0; 
             });
         });
     }
 
-    _drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius) {
+    _drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius, globalAlphaMult) {
         const percRadii = { 'kick': -16, 'snare': -8, 'othp': 0, 'chh': 8, 'ohh': 16 };
         const noteNames = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 
@@ -194,7 +205,8 @@ export default class Visualizer {
                 this.ctx.save();
                 this.ctx.translate(x, y);
                 this.ctx.rotate(angle);
-                this.ctx.globalAlpha = Math.max(0, 1 - fadeProgress);
+                
+                this.ctx.globalAlpha = Math.max(0, 1 - fadeProgress) * globalAlphaMult;
 
                 this.ctx.lineWidth = 1.5;
                 this.ctx.strokeStyle = percColor;
@@ -243,7 +255,7 @@ export default class Visualizer {
                     ghostProgress = 1; 
                 }
 
-                const currentAlpha = isGhost ? 1 - ghostProgress : 1;
+                const currentAlpha = (isGhost ? 1 - ghostProgress : 1) * globalAlphaMult;
                 const currentLineWidth = isGhost ? 2 * (1 - ghostProgress) : 2;
                 const currentRadius = isGhost ? baseNoteRadius + (ghostProgress * 8) : baseNoteRadius;
 
@@ -310,6 +322,8 @@ export default class Visualizer {
                         const wrappedPitchClass = ((rawPitchClass % 12) + 12) % 12;
                         const textImg = this._getNoteImage(noteNames[wrappedPitchClass], noteColor, VISUAL_SETTINGS.textSize);
                         
+                        this.ctx.save();
+                        this.ctx.globalAlpha = globalAlphaMult;
                         this.ctx.drawImage(
                             textImg, 
                             x - (textImg.logicalSize / 2), 
@@ -317,6 +331,7 @@ export default class Visualizer {
                             textImg.logicalSize,
                             textImg.logicalSize
                         );
+                        this.ctx.restore();
                     }
                 });
             }
