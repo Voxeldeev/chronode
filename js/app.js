@@ -28,22 +28,17 @@ class ChronodeApp {
         };
 
         this.isShiftDown = false;
+        this.recorder = null;
 
         this.audioEl = document.getElementById('audio');
         this.visualizer = new Visualizer(document.getElementById('visualizer'));
 
         window.addEventListener('resize', () => {
-            if (!this.recorder.isRecording) {
+            if (this.recorder && !this.recorder.isRecording) {
                 this.visualizer.resize();
             }
         });
         
-        this.recorder = new VideoRecorder(
-            this.visualizer.canvas, 
-            this.audioEl, 
-            () => this._evaluateUploadState()
-        );
-
         this.ui = new UIManager(this.settings, this.DEFAULT_SETTINGS, {
             onPlayToggle: () => this._handlePlayToggle(),
             onScrub: (val) => this._handleScrub(val),
@@ -59,7 +54,7 @@ class ChronodeApp {
         const handleKey = (e) => {
             if (e.key === 'Shift') {
                 this.isShiftDown = (e.type === 'keydown');
-                this.ui.updateTransportIcon(!this.audioEl.paused, this.isShiftDown, this.recorder.isRecording);
+                this.ui.updateTransportIcon(!this.audioEl.paused, this.isShiftDown, this.recorder ? this.recorder.isRecording : false);
                 return;
             }
 
@@ -88,7 +83,7 @@ class ChronodeApp {
         document.addEventListener('keyup', handleKey);
         
         this.audioEl.addEventListener('ended', () => {
-            if (this.recorder.isRecording) {
+            if (this.recorder && this.recorder.isRecording) {
                 this.ui.setDropZoneStatus("Finalizing Video...", "default");
                 const paddingMs = (this.settings.decayTime * 1000) + 1000; 
                 
@@ -106,6 +101,14 @@ class ChronodeApp {
     }
 
     _handlePlayToggle() {
+        if (!this.recorder) {
+            this.recorder = new VideoRecorder(
+                this.visualizer.canvas, 
+                this.audioEl, 
+                () => this._evaluateUploadState()
+            );
+        }
+
         if (this.isShiftDown && this.audioEl.paused && !this.recorder.isRecording) {
             this.audioEl.currentTime = 0;
             const cleanName = this.uploadState.jsonName.split('.').slice(0, -1).join('.');
@@ -171,7 +174,7 @@ class ChronodeApp {
 
     _processFiles(files) {
         if (this.uploadState.isJsonLoaded && this.uploadState.isAudioLoaded) {
-            if (this.recorder.isRecording) {
+            if (this.recorder && this.recorder.isRecording) {
                 this.recorder.stop();
                 this.visualizer.resize();
             }
@@ -219,10 +222,10 @@ class ChronodeApp {
 
         if (state.isJsonLoaded && state.isAudioLoaded) {
             const nameJson = state.jsonName.split('.').slice(0, -1).join('.');
-            const nameWav = state.audioName.split('.').slice(0, -1).join('.');
+            const nameAudio = state.audioName.split('.').slice(0, -1).join('.');
             
             this.ui.setDropZoneStatus(
-                nameJson === nameWav ? nameJson : `[${state.jsonName}] & [${state.audioName}]`, 
+                nameJson === nameAudio ? nameJson : `[${state.jsonName}] & [${state.audioName}]`, 
                 "ready"
             );
             

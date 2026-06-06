@@ -8,6 +8,12 @@ export default class VideoRecorder {
         this.recordedChunks = [];
         this.isRecording = false;
         this.fileName = 'Export';
+        
+        this.audioCtx = null; 
+    }
+
+    _ensureAudioContext() {
+        if (this.audioCtx) return;
 
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.audioCtx = new AudioContext();
@@ -27,6 +33,8 @@ export default class VideoRecorder {
     }
 
     start(fileName) {
+        this._ensureAudioContext();
+        
         this.isRecording = true;
         this.recordedChunks = [];
         this.fileName = fileName || 'Export';
