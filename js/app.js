@@ -2,6 +2,7 @@ import { parseBeepboxData } from './parser.js';
 import Visualizer from './visualizer.js';
 import VideoRecorder from './recorder.js';
 import UIManager from './ui.js';
+import TutorialManager from './tutorial.js';
 
 class ChronodeApp {
     constructor() {
@@ -12,7 +13,9 @@ class ChronodeApp {
             useFixedOrbitalSpacing: false, 
             fixedOrbitalSpacing: 50,       
             decayTime: 0.30,               
-            lineShotTime: 0.1             
+            lineShotTime: 0.1,
+            lineThickness: 2,
+            decayRadius: 120
         };
         
         this.settings = { ...this.DEFAULT_SETTINGS };
@@ -45,6 +48,43 @@ class ChronodeApp {
             onFilesDrop: (files) => this._processFiles(files),
             onDemoLoad: () => this._loadDemoSong()
         });
+
+        const tutorialPages = [
+            {
+                title: "CHRONODE BY VOXEL",
+                content: "Chronode is a music visualizer built for UltraBox and its derivative boxes (like Abyssbox and Slarmoo's Box).<br><br>It reads the JSON and maps notes onto a Circle of Fifths. The visualizer reacts to song tempo, time signature, pitch bends, and master volume. <br><br> For an example, take a look at the demo song accessible from the bottom of the settings (in the hamburger menu).<br><br> You can exit this menu at anytime by clicking outside the window."
+            },
+            {
+                title: "CHANNEL FORMATTING",
+                content: "You can customize how individual instruments look by renaming their channels in UltraBox using the format: <b>tag.#hexcolor</b> (e.g., <i>hex.#ff0000</i>).<br><br><b>SHAPE TAGS:</b> sml (Small), lrg (Large), tri (Triangle), sqr (Square), pnt (Pentagon), hex (Hexagon).<br><br><b>DRUM TAGS:</b> kick, snare, chh (Closed Hat), ohh (Open Hat), othp (Other Perc).<br><br><b>SPECIAL TAGS:</b> Name a channel <i>omit</i> to hide it entirely from the visualizer. Alternatively, name it <i>norm</i> to create the default circle."
+            },
+            {
+                title: "UPLOADING SONGS",
+                content: "To visualize your song, you must provide two files:<br><br>1. An audio file (.mp3 or .wav)<br>2. The project data (.json)<br><br>Drag and drop both files simultaneously anywhere on the screen, or click the dropzone in the bottom right to browse your computer."
+            },
+            {
+                title: "SONG NAVIGATION",
+                content: "Once loaded, use the Transport bar at the bottom to control playback. You can click anywhere on the timeline to scrub to a specific part of the song.<br><br>Shortcuts:<br>- [Spacebar] Play / Pause<br>- [Left Arrow] Rewind 5 seconds<br>- [Right Arrow] Skip forward 5 seconds"
+            },
+            {
+                title: "EXPORTING VIDEO",
+                content: "Hold [Shift] to reveal the Record button in the transport bar. Clicking it will automatically restart your track and begin capturing the visualizer in the background.<br><br>You can set your desired export resolution in the right-hand settings panel. WebM video files will automatically download to your computer when the song finishes."
+            },
+            {
+                title: "SPACING SETTINGS",
+                content: "TEXT SIZE: Adjusts the font size of the note names on the perimeter.<br><br>ORBITAL SPACING: Switches between a dynamic layout that fits your screen, or a strict fixed distance between instrumental layers.<br><br>DOT SCALE: Universally scales the size of the note shapes and percussion symbols."
+            },
+            {
+                title: "LINE SETTINGS",
+                content: "LINE THICKNESS: Adjusts the stroke width of melodic connections and polygonal shape outlines. Set to 0px to hide connecting lines entirely.<br><br>LINE SHOT TIME: Controls the speed at which melodic lines \"shoot\" from the center toward the perimeter before a note strikes. Lower values are faster."
+            },
+            {
+                title: "DECAY SETTINGS",
+                content: "DECAY RADIUS: Determines the final size of a note after it finishes playing. Set below 100% to shrink notes into nothing, or above 100% to create expanding ripples.<br><br>DECAY TIME: Determines how long (in seconds) the ghost note remains on screen, fading out gracefully based on the radius setting."
+            }
+        ];
+        
+        this.tutorial = new TutorialManager(tutorialPages);
 
         this._bindGlobalShortcuts();
         this._startRenderLoop();

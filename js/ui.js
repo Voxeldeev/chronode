@@ -66,6 +66,26 @@ export default class UIManager {
         this.elements.exportRes.addEventListener('change', (e) => {
             this.settings.exportRes = e.target.value;
         });
+
+        const lineThicknessSlider = document.getElementById('set-lineThickness');
+        const lineThicknessVal = document.getElementById('val-lineThickness');
+        
+        if (lineThicknessSlider) {
+            lineThicknessSlider.addEventListener('input', (e) => {
+                this.settings.lineThickness = parseFloat(e.target.value);
+                lineThicknessVal.textContent = `${e.target.value}px`;
+            });
+        }
+
+        const decayRadiusSlider = document.getElementById('set-decayRadius');
+        const decayRadiusVal = document.getElementById('val-decayRadius');
+        
+        if (decayRadiusSlider) {
+            decayRadiusSlider.addEventListener('input', (e) => {
+                this.settings.decayRadius = parseInt(e.target.value);
+                decayRadiusVal.textContent = `${e.target.value}%`;
+            });
+        }
     }
 
     _bindSettingInput(inputId, displayId, settingKey, isFloat = false) {
@@ -90,7 +110,9 @@ export default class UIManager {
             { id: 'set-dotScale', valId: 'val-dotScale', val: this.settings.dotRadiusScale.toFixed(1), suffix: 'x' },
             { id: 'set-fixedSpace', valId: 'val-fixedSpace', val: this.settings.fixedOrbitalSpacing, suffix: 'px' },
             { id: 'set-decay', valId: 'val-decay', val: this.settings.decayTime, suffix: 's' },
-            { id: 'set-shot', valId: 'val-shot', val: this.settings.lineShotTime, suffix: 's' }
+            { id: 'set-shot', valId: 'val-shot', val: this.settings.lineShotTime, suffix: 's' },
+            { id: 'set-lineThickness', valId: 'val-lineThickness', val: this.settings.lineThickness, suffix: 'px' },
+            { id: 'set-decayRadius', valId: 'val-decayRadius', val: this.settings.decayRadius, suffix: '%' }
         ];
 
         updates.forEach(({ id, valId, val, suffix }) => {

@@ -13,6 +13,20 @@
     <canvas id="visualizer" aria-hidden="true"></canvas>
     <audio id="audio" hidden></audio>
 
+    <button id="help-btn">?</button>
+
+    <div id="tutorial-overlay" class="hidden">
+        <div id="tutorial-modal">
+            <h2 id="tutorial-title"></h2>
+            <div id="tutorial-body"></div>
+            <div id="tutorial-footer">
+                <button id="tut-prev">&lt; Prev</button>
+                <span id="tut-page"></span>
+                <button id="tut-next">Next &gt;</button>
+            </div>
+        </div>
+    </div>
+
     <main id="ui-layer">
         
         <header id="top-bar">
@@ -36,6 +50,15 @@
             <div class="setting-group">
                 <label for="set-dotScale">Dot Scale <span id="val-dotScale">1.0x</span></label>
                 <input type="range" id="set-dotScale" min="0.1" max="3" step="0.1" value="1.0">
+            </div>
+            <div class="setting-group">
+                <label for="set-lineThickness">Line Thickness <span id="val-lineThickness">2px</span></label>
+                <input type="range" id="set-lineThickness" min="0" max="10" step="0.5" value="2">
+            </div>
+
+            <div class="setting-group">
+                <label for="set-decayRadius">Decay Radius <span id="val-decayRadius">120%</span></label>
+                <input type="range" id="set-decayRadius" min="0" max="250" step="5" value="120">
             </div>
             <div class="setting-group checkbox-group">
                 <input type="checkbox" id="set-useFixed">

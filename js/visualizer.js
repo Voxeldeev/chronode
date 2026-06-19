@@ -133,6 +133,8 @@ export default class Visualizer {
     }
 
     _drawMelodicLines(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, globalAlphaMult) {
+        const thickness = VISUAL_SETTINGS.lineThickness !== undefined ? VISUAL_SETTINGS.lineThickness : 2;
+
         activeEvents.forEach(event => {
             if (event.isPerc || currentTime > event.endTime) return; 
 
@@ -168,15 +170,17 @@ export default class Visualizer {
                 const endX = centerX + Math.cos(angle) * ringRadius * lineEndRatio;
                 const endY = centerY + Math.sin(angle) * ringRadius * lineEndRatio;
 
-                this.ctx.beginPath();
-                this.ctx.moveTo(startX, startY);
-                this.ctx.lineTo(endX, endY);
-                this.ctx.strokeStyle = lineColor;
-                this.ctx.lineWidth = 2;
-                
-                this.ctx.globalAlpha = globalAlphaMult;
-                this.ctx.stroke();
-                this.ctx.globalAlpha = 1.0; 
+                // Only perform draw calculations if thickness is strictly greater than 0
+                if (thickness > 0) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(startX, startY);
+                    this.ctx.lineTo(endX, endY);
+                    this.ctx.strokeStyle = lineColor;
+                    this.ctx.lineWidth = thickness;
+                    this.ctx.globalAlpha = globalAlphaMult;
+                    this.ctx.stroke();
+                    this.ctx.globalAlpha = 1.0; 
+                }
             });
         });
     }
@@ -184,6 +188,9 @@ export default class Visualizer {
     _drawNotesAndPercussion(activeEvents, currentTime, VISUAL_SETTINGS, songData, centerX, centerY, maxRadius, orbitRadius, globalAlphaMult) {
         const percRadii = { 'kick': -16, 'snare': -8, 'othp': 0, 'chh': 8, 'ohh': 16 };
         const noteNames = ["C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
+        
+        const thickness = VISUAL_SETTINGS.lineThickness !== undefined ? VISUAL_SETTINGS.lineThickness : 2;
+        const decayScale = VISUAL_SETTINGS.decayRadius !== undefined ? (VISUAL_SETTINGS.decayRadius / 100) : 1.5;
 
         activeEvents.forEach(event => {
             const boundedTime = Math.max(event.startTime, Math.min(currentTime, event.endTime));
@@ -208,7 +215,7 @@ export default class Visualizer {
                 
                 this.ctx.globalAlpha = Math.max(0, 1 - fadeProgress) * globalAlphaMult;
 
-                this.ctx.lineWidth = 1.5;
+                this.ctx.lineWidth = Math.max(1, thickness); 
                 this.ctx.strokeStyle = percColor;
                 this.ctx.fillStyle = percColor;
                 this.ctx.beginPath();
@@ -256,8 +263,12 @@ export default class Visualizer {
                 }
 
                 const currentAlpha = (isGhost ? 1 - ghostProgress : 1) * globalAlphaMult;
-                const currentLineWidth = isGhost ? 2 * (1 - ghostProgress) : 2;
-                const currentRadius = isGhost ? baseNoteRadius + (ghostProgress * 8) : baseNoteRadius;
+                
+                const currentLineWidth = isGhost ? thickness * (1 - ghostProgress) : thickness;
+                
+                const targetRadius = baseNoteRadius * decayScale;
+                const calculatedRadius = isGhost ? baseNoteRadius + (ghostProgress * (targetRadius - baseNoteRadius)) : baseNoteRadius;
+                const safeRadius = Math.max(0, calculatedRadius);
 
                 const reversedLayerIndex = (songData.renderedChannelCount - event.layerIndex) + 1;
 
@@ -286,8 +297,8 @@ export default class Visualizer {
                         this.ctx.beginPath();
                         for (let i = 0; i < sides; i++) {
                             const polyAngle = Math.PI + (i * Math.PI * 2 / sides);
-                            const px = Math.cos(polyAngle) * currentRadius;
-                            const py = Math.sin(polyAngle) * currentRadius;
+                            const px = Math.cos(polyAngle) * safeRadius;
+                            const py = Math.sin(polyAngle) * safeRadius;
                             if (i === 0) this.ctx.moveTo(px, py);
                             else this.ctx.lineTo(px, py);
                         }
@@ -304,7 +315,7 @@ export default class Visualizer {
                         
                     } else {
                         this.ctx.beginPath();
-                        this.ctx.arc(x, y, currentRadius, 0, Math.PI * 2); 
+                        this.ctx.arc(x, y, safeRadius, 0, Math.PI * 2); 
                         this.ctx.fillStyle = 'black';
                         this.ctx.fill();
                         
